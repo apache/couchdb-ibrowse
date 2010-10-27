@@ -5,16 +5,16 @@
 
 -module(ibrowse_test).
 -export([
-	 load_test/3,
+	 test_load/3,
 	 send_reqs_1/3,
 	 do_send_req/2,
 	 unit_tests/0,
 	 unit_tests/1,
 	 unit_tests_1/2,
-	 drv_ue_test/0,
-	 drv_ue_test/1,
-	 ue_test/0,
-	 ue_test/1,
+	 test_drv_ue/0,
+	 test_drv_ue/1,
+	 test_ue/0,
+	 test_ue/1,
 	 verify_chunked_streaming/0,
 	 verify_chunked_streaming/1,
          test_chunked_streaming_once/0,
@@ -65,7 +65,7 @@ test_stream_once(Req_id) ->
     end.
 %% Use ibrowse:set_max_sessions/3 and ibrowse:set_max_pipeline_size/3 to
 %% tweak settings before running the load test. The defaults are 10 and 10.
-load_test(Url, NumWorkers, NumReqsPerWorker) when is_list(Url),
+test_load(Url, NumWorkers, NumReqsPerWorker) when is_list(Url),
                                                   is_integer(NumWorkers),
                                                   is_integer(NumReqsPerWorker),
                                                   NumWorkers > 0,
@@ -413,9 +413,9 @@ execute_req(Url, Method, Options) ->
 	    io:format("~p~n", [Err])
     end.
 
-drv_ue_test() ->
-    drv_ue_test(lists:duplicate(1024, 127)).
-drv_ue_test(Data) ->
+test_drv_ue() ->
+    test_drv_ue(lists:duplicate(1024, 127)).
+test_drv_ue(Data) ->
     [{port, Port}| _] = ets:lookup(ibrowse_table, port),
 %     erl_ddll:unload_driver("ibrowse_drv"),
 %     timer:sleep(1000),
@@ -427,9 +427,9 @@ drv_ue_test(Data) ->
     io:format("Res Length -> ~p~n", [length(Res)]).
 %    io:format("Result -> ~s~n", [Res]).
 
-ue_test() ->
-    ue_test(lists:duplicate(1024, $?)).
-ue_test(Data) ->
+test_ue() ->
+    test_ue(lists:duplicate(1024, $?)).
+test_ue(Data) ->
     {Time, Res} = timer:tc(ibrowse_lib, url_encode, [Data]),
     io:format("Time -> ~p~n", [Time]),
     io:format("Data Length -> ~p~n", [length(Data)]),
