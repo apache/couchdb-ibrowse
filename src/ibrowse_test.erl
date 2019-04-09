@@ -27,7 +27,8 @@
          test_head_transfer_encoding/0,
          test_head_transfer_encoding/1,
          test_head_response_with_body/0,
-         test_head_response_with_body/1
+         test_head_response_with_body/1,
+         test_dead_lb_pid/0
 	]).
 
 test_stream_once(Url, Method, Options) ->
@@ -233,7 +234,8 @@ dump_errors(Key, Iod) ->
                     {local_test_fun, test_20122010, []},
                     {local_test_fun, test_pipeline_head_timeout, []},
                     {local_test_fun, test_head_transfer_encoding, []},
-                    {local_test_fun, test_head_response_with_body, []}
+                    {local_test_fun, test_head_response_with_body, []},
+                    {local_test_fun, test_dead_lb_pid, []}
 		   ]).
 
 unit_tests() ->
@@ -615,6 +617,23 @@ do_test_20122010_1(Expected_resp, Req_id, Acc) ->
     after 1000 ->
             exit({timeout, test_failed})
     end.
+
+%%------------------------------------------------------------------------------
+%% Test that when an lb process dies, its entry is removed from the ibrowse_lb
+%% table by the next requestor and replaced with a new process
+%%------------------------------------------------------------------------------
+test_dead_lb_pid() ->
+    {Host, Port} = {"localhost", 8181},
+    Url = "http://" ++ Host ++ ":" ++ integer_to_list(Port),
+    {ok, "200", _, _} = ibrowse:send_req(Url, [], get),
+    [{lb_pid, {Host, Port}, Pid}] = ets:lookup(ibrowse_lb, {Host, Port}),
+    true = exit(Pid, kill),
+    false = is_process_alive(Pid),
+    {ok, "200", _, _} = ibrowse:send_req(Url, [], get),
+    [{lb_pid, {Host, Port}, NewPid}] = ets:lookup(ibrowse_lb, {Host, Port}),
+    true = NewPid /= Pid,
+    true = is_process_alive(NewPid),
+    success.
 
 do_trace(Fmt, Args) ->
     do_trace(get(my_trace_flag), Fmt, Args).
