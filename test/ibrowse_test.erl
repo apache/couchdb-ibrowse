@@ -40,7 +40,8 @@
 	 test_save_to_file_no_content_length/0,
          socks5_noauth/0,
          socks5_auth_succ/0,
-         socks5_auth_fail/0
+         socks5_auth_fail/0,
+         test_dead_lb_pid/0
 	]).
 
 -include_lib("ibrowse/include/ibrowse.hrl").
@@ -64,7 +65,8 @@
                       {local_test_fun, test_retry_of_requests, []},
 		      {local_test_fun, verify_chunked_streaming, []},
 		      {local_test_fun, test_chunked_streaming_once, []},
-		      {local_test_fun, test_generate_body_0, []}
+		      {local_test_fun, test_generate_body_0, []},
+		      {local_test_fun, test_dead_lb_pid, []}
                      ]).
 
 -define(TEST_LIST, [{"http://intranet/messenger", get},
@@ -876,6 +878,22 @@ test_generate_body_0() ->
     after
         ets:delete(Tid)
     end.
+
+%% Test that when an lb process dies, its entry is removed from the ibrowse_lb
+%% table by the next requestor and replaced with a new process
+%%------------------------------------------------------------------------------
+test_dead_lb_pid() ->
+    {Host, Port} = {"localhost", 8181},
+    Url = "http://" ++ Host ++ ":" ++ integer_to_list(Port),
+    {ok, "200", _, _} = ibrowse:send_req(Url, [], get),
+    [{lb_pid, {Host, Port}, Pid}] = ets:lookup(ibrowse_lb, {Host, Port}),
+    true = exit(Pid, kill),
+    false = is_process_alive(Pid),
+    {ok, "200", _, _} = ibrowse:send_req(Url, [], get),
+    [{lb_pid, {Host, Port}, NewPid}] = ets:lookup(ibrowse_lb, {Host, Port}),
+    true = NewPid /= Pid,
+    true = is_process_alive(NewPid),
+    success.
 
 do_trace(Fmt, Args) ->
     do_trace(get(my_trace_flag), Fmt, Args).
