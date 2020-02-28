@@ -31,7 +31,8 @@
          handle_cast/2,
          handle_info/2,
          terminate/2,
-         code_change/3
+         code_change/3,
+         format_status/2
         ]).
 
 -include("ibrowse.hrl").
@@ -259,6 +260,31 @@ handle_info(Info, State) ->
 terminate(_Reason, State) ->
     do_close(State),
     ok.
+
+%%--------------------------------------------------------------------
+%% Function: format_status/2
+%% Description: Removes sensitive data from the process state term
+%% Returns: {State, Options}
+%%--------------------------------------------------------------------
+
+format_status(_Opt, [_PDict, #state{cur_req = CurReq} = State]) ->
+    StateMap = maps:without([
+        socks5_user,
+        socks5_password,
+        reqs,
+        reply_buffer,
+        recvd_headers,
+        raw_headers,
+        status_line,
+        chunk_size_buffer,
+        cur_req
+    ], state_to_map(State)),
+
+    RequestMap = maps:update_with(url, fun(Url) ->
+        url_strip_password(Url)
+    end, undefined, request_to_map(CurReq)),
+
+    {maps:merge(StateMap, RequestMap), #{sensitive => true}}.
 
 %%--------------------------------------------------------------------
 %% Func: code_change/3
@@ -1943,3 +1969,30 @@ trace_request_body(Body) ->
 
 to_binary(X) when is_list(X)   -> list_to_binary(X);
 to_binary(X) when is_binary(X) -> X.
+
+state_to_map(#state{} = State) ->
+    element(1, lists:foldl(fun(Field, {Map, Idx}) ->
+        {
+            maps:put(Field, element(Idx, State), Map),
+            Idx + 1
+        }
+    end, {#{}, 2}, record_info(fields, state)));
+state_to_map(_) ->
+    #{}.
+
+request_to_map(#request{} = Request) ->
+    element(1, lists:foldl(fun(Field, {Map, Idx}) ->
+        {
+            maps:put(Field, element(Idx, Request), Map),
+            Idx + 1
+        }
+    end, {#{}, 2}, record_info(fields, request)));
+request_to_map(_) ->
+    #{}.
+
+
+url_strip_password(Url) ->
+    re:replace(Url,
+        "(http|https|socks5)://([^:]+):[^@]+@(.*)$",
+        "\\1://\\2:*****@\\3",
+        [{return, list}]).
