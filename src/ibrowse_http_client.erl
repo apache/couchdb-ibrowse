@@ -33,7 +33,8 @@
          handle_cast/2,
          handle_info/2,
          terminate/2,
-         code_change/3
+         code_change/3,
+         format_status/2
         ]).
 
 -include("ibrowse.hrl").
@@ -321,9 +322,46 @@ terminate(_Reason, #state{lb_ets_tid = Tid} = State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+
+%%--------------------------------------------------------------------
+%% Function: format_status/2
+%% Purpose: Clean process state before logging
+%% Returns: key value list
+%%--------------------------------------------------------------------
+format_status(_Opt, [_PDict, State]) ->
+    #state{
+        reqs=Reqs,
+        reply_buffer=ReplyBuf,
+        recvd_headers=RCVDHeaders,
+        raw_headers=RawHeaders,
+        chunk_size_buffer=ChunkSizeBuf,
+        cur_req=Request
+    } = State,
+    ScrubbedReq = Request#request{url=url_strip_password(Request#request.url)},
+    Scrubbed = State#state{
+        reqs={queue_length, queue:len(Reqs)},
+        reply_buffer={byte_size, byte_size(ReplyBuf)},
+        recvd_headers=lists:map(fun({K, _V}) -> K end, RCVDHeaders),
+        raw_headers={byte_size, byte_size(RawHeaders)},
+        chunk_size_buffer={byte_size, byte_size(ChunkSizeBuf)},
+        cur_req=ScrubbedReq
+    },
+    [{data, [{"State",
+        lists:zip(
+            record_info(fields, state),
+            tl(tuple_to_list(Scrubbed))
+        )
+    }]}].
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+url_strip_password(Url) ->
+    re:replace(Url,
+        "(http|https|socks5)://([^:]+):[^@]+@(.*)$",
+        "\\1://\\2:*****@\\3",
+        [{return, list}]).
 
 %%--------------------------------------------------------------------
 %% Handles data recvd on the socket
