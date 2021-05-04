@@ -28,8 +28,14 @@
          get_value/2,
          get_value/3,
          parse_url/1,
-         printable_date/0
+         printable_date/0,
+         unquote/1
         ]).
+
+-define(PERCENT, 37).  % $\%
+-define(IS_HEX(C), ((C >= $0 andalso C =< $9) orelse
+                    (C >= $a andalso C =< $f) orelse
+                    (C >= $A andalso C =< $F))).
 
 get_trace_status(Host, Port) ->
     ibrowse:get_config_value({trace, Host, Port}, false).
@@ -384,6 +390,29 @@ printable_date() ->
      $:,
      integer_to_list(MicroSecs div 1000)].
 
+%% @spec unquote(string() | binary()) -> string()
+%% @doc Unquote a URL encoded string.
+unquote(Binary) when is_binary(Binary) ->
+    unquote(binary_to_list(Binary));
+unquote(String) ->
+    qs_revdecode(lists:reverse(String)).
+
+qs_revdecode(S) ->
+    qs_revdecode(S, []).
+
+qs_revdecode([], Acc) ->
+    Acc;
+qs_revdecode([$+ | Rest], Acc) ->
+    qs_revdecode(Rest, [$\s | Acc]);
+qs_revdecode([Lo, Hi, ?PERCENT | Rest], Acc) when ?IS_HEX(Lo), ?IS_HEX(Hi) ->
+    qs_revdecode(Rest, [(unhexdigit(Lo) bor (unhexdigit(Hi) bsl 4)) | Acc]);
+qs_revdecode([C | Rest], Acc) ->
+    qs_revdecode(Rest, [C | Acc]).
+
+unhexdigit(C) when C >= $0, C =< $9 -> C - $0;
+unhexdigit(C) when C >= $a, C =< $f -> C - $a + 10;
+unhexdigit(C) when C >= $A, C =< $F -> C - $A + 10.
+
 do_trace(Fmt, Args) ->
     do_trace(get(my_trace_flag), Fmt, Args).
 
@@ -438,5 +467,16 @@ parse_url_test() ->
       fun({Url, Expected_result}) ->
               ?assertMatch(Expected_result, parse_url(Url))
       end, Urls).
+
+unquote_test() ->
+    ?assertEqual("foo bar",
+        unquote("foo+bar")),
+    ?assertEqual("foo bar",
+        unquote("foo%20bar")),
+    ?assertEqual("foo\r\n",
+        unquote("foo%0D%0A")),
+    ?assertEqual("foo\r\n",
+        unquote(<<"foo%0D%0A">>)),
+    ok.
 
 -endif.
