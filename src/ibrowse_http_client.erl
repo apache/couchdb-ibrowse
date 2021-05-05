@@ -910,7 +910,9 @@ add_auth_headers(#url{username = User,
                                 [{"Authorization", ["Basic ", http_auth_digest(U, P)]} | Headers]
                         end;
                     _ ->
-                        [{"Authorization", ["Basic ", http_auth_digest(User, UPw)]} | Headers]
+                        User1 = ibrowse_lib:unquote(User),
+                        UPw1 = ibrowse_lib:unquote(UPw),
+                        [{"Authorization", ["Basic ", http_auth_digest(User1, UPw1)]} | Headers]
                 end,
     add_proxy_auth_headers(State, Headers_1).
 
