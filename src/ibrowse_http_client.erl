@@ -463,9 +463,14 @@ accumulate_response(Data, #state{reply_buffer      = RepBuf,
             State#state{reply_buffer = RepBuf_1}
     end.
 
+strictly_monotonic_timestamp() ->
+   {A, B, _} = erlang:timestamp(),
+   Unique = erlang:unique_integer([positive, monotonic]),
+   {A, B, Unique}.
+
 make_tmp_filename(true) ->
     DownloadDir = ibrowse:get_config_value(download_dir, filename:absname("./")),
-    {A,B,C} = now(),
+    {A,B,C} = strictly_monotonic_timestamp(),
     filename:join([DownloadDir,
                    "ibrowse_tmp_file_"++
                    integer_to_list(A) ++
@@ -1870,7 +1875,7 @@ cancel_timer(Ref, {eat_message, Msg}) ->
     end.
 
 make_req_id() ->
-    now().
+    strictly_monotonic_timestamp().
 
 to_lower(Str) ->
     to_lower(Str, []).
