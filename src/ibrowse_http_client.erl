@@ -580,13 +580,18 @@ do_connect(Host, Port, Options, #state{is_ssl      = true,
                                        use_proxy   = false,
                                        ssl_options = SSLOptions},
            Timeout) ->
+    %% Check for connect_to override and remove from options
+    Host1 = get_value(connect_to, Options, Host),
+    Options1 = proplists:delete(connect_to, Options),
+    
     %% if a socks5 proxy is configured, open the socket separately
     %% before upgrading the socket to a TLS connection.
-    case get_value(socks5_host, Options, undefined) of
+    case get_value(socks5_host, Options1, undefined) of
         %% no socks5 proxy is configured, connect directly with TLS:
         undefined ->
-            Sock_options = get_sock_options(Host, Options, SSLOptions),
-            ssl:connect(Host, Port, Sock_options, Timeout);
+            Sock_options = get_sock_options(Host, Options1, SSLOptions),
+            Sock_options1 = ensure_sni(Sock_options, Host),
+            ssl:connect(Host1, Port, Sock_options1, Timeout);
 
         %% proxy configuration is present: first establish a socket
         %% and then upgrade:
@@ -603,13 +608,17 @@ do_connect(Host, Port, Options, #state{is_ssl      = true,
     end;
 
 do_connect(Host, Port, Options, _State, Timeout) ->
-    Socks5Host = get_value(socks5_host, Options, undefined),
-    Sock_options = get_sock_options(Host, Options, []),
+    %% Check for connect_to override and remove from options
+    Host1 = get_value(connect_to, Options, Host),
+    Options1 = proplists:delete(connect_to, Options),
+    
+    Socks5Host = get_value(socks5_host, Options1, undefined),
+    Sock_options = get_sock_options(Host, Options1, []),
     case Socks5Host of
       undefined ->
-        gen_tcp:connect(Host, Port, Sock_options, Timeout);
+        gen_tcp:connect(Host1, Port, Sock_options, Timeout);
       _ ->
-        catch ibrowse_socks5:connect(Host, Port, Options, Sock_options, Timeout)
+        catch ibrowse_socks5:connect(Host1, Port, Options1, Sock_options, Timeout)
     end.
 
 get_sock_options(Host, Options, SSLOptions) ->
@@ -657,9 +666,19 @@ filter_sock_options(Opts) ->
                          false;
                     (list) ->
                          false;
+
                     (_) ->
                          true
                  end, Opts).
+
+%% Ensure SNI is set for SSL connections when using connect_to override
+ensure_sni(Opts, Host) ->
+    case lists:keyfind(server_name_indication, 1, Opts) of
+        false ->
+            [{server_name_indication, Host} | Opts];
+        _ ->
+            Opts
+    end.
 
 do_send(Req, #state{socket = Sock,
                     is_ssl = true,
