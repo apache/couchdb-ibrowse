@@ -232,6 +232,16 @@ process_request(Sock, Sock_type,
 process_request(Sock, Sock_type,
                 #request{method='GET',
                          headers = Headers,
+                         uri = {abs_path, "/ibrowse_echo_host"}}) ->
+    Host = get_host_header(Headers),
+    Resp = [<<"HTTP/1.1 200 OK\r\n">>,
+            <<"Server: ibrowse_test\r\n">>,
+            "x-host: ", Host, "\r\n",
+            <<"Content-Length: 0\r\n\r\n">>],
+    do_send(Sock, Sock_type, Resp);
+process_request(Sock, Sock_type,
+                #request{method='GET',
+                         headers = Headers,
                          uri = {abs_path, "/ibrowse_echo_header"}}) ->
     Tag = "x-binary",
     Headers_1 = [{to_lower(X), to_lower(Y)} || {http_header, _, X, _, Y} <- Headers],
@@ -366,3 +376,10 @@ get_content_length([{http_header, _, _X, _, _Y} | T]) ->
     get_content_length(T);
 get_content_length([]) ->
     undefined.
+
+get_host_header([{http_header, _, 'Host', _, V} | _]) ->
+    V;
+get_host_header([_ | T]) ->
+    get_host_header(T);
+get_host_header([]) ->
+    "not_found".

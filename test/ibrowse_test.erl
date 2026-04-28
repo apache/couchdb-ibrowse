@@ -34,6 +34,9 @@
          test_preserve_status_line/0,
          test_binary_headers/0,
          test_binary_headers/1,
+         test_connect_to_overrides_target/0,
+         test_connect_to_unreachable_fails/0,
+         test_connect_to_preserves_host_header/0,
          test_dead_lb_pid/0,
          test_generate_body_0/0,
          test_retry_of_requests/0,
@@ -62,6 +65,9 @@
                       {local_test_fun, test_303_response_with_a_body, []},
 		      {local_test_fun, test_303_response_with_no_body, []},
                       {local_test_fun, test_binary_headers, []},
+                      {local_test_fun, test_connect_to_overrides_target, []},
+                      {local_test_fun, test_connect_to_unreachable_fails, []},
+                      {local_test_fun, test_connect_to_preserves_host_header, []},
                       {local_test_fun, test_dead_lb_pid, []},
                       {local_test_fun, test_retry_of_requests, []},
 		      {local_test_fun, verify_chunked_streaming, []},
@@ -538,6 +544,55 @@ test_binary_headers(Url) ->
         {ok, "200", Headers, _} ->
             case proplists:get_value("x-binary", Headers) of
                 "x-header" ->
+                    success;
+                V ->
+                    {fail, V}
+            end;
+        Res ->
+            {test_failed, Res}
+    end.
+
+%%------------------------------------------------------------------------------
+%% url host is bogus, request only succeeds if connect_to actually
+%% redirects
+%%------------------------------------------------------------------------------
+test_connect_to_overrides_target() ->
+    clear_msg_q(),
+    Url = "http://no.such.host.invalid:8181/",
+    case ibrowse:send_req(Url, [], get, [], [{connect_to, "localhost"}], 5000) of
+        {ok, "200", _, _} ->
+            success;
+        Res ->
+            {test_failed, Res}
+    end.
+
+%%------------------------------------------------------------------------------
+%% url host reachable, but connect_to points at an unroutable
+%% address
+%%------------------------------------------------------------------------------
+test_connect_to_unreachable_fails() ->
+    clear_msg_q(),
+    case ibrowse:send_req("http://localhost:8181/", [], get, [],
+                          [{connect_to, "192.0.2.1"},
+                           {connect_timeout, 500}],
+                          5000) of
+        {error, _} ->
+            success;
+        Res ->
+            {test_failed, Res}
+    end.
+
+%%------------------------------------------------------------------------------
+%% connect_to shouldn't bleed into the Host header, server should see the
+%% original url host
+%%------------------------------------------------------------------------------
+test_connect_to_preserves_host_header() ->
+    clear_msg_q(),
+    Url = "http://example.invalid:8181/ibrowse_echo_host",
+    case ibrowse:send_req(Url, [], get, [], [{connect_to, "localhost"}], 5000) of
+        {ok, "200", Headers, _} ->
+            case proplists:get_value("x-host", Headers) of
+                "example.invalid:8181" ->
                     success;
                 V ->
                     {fail, V}
