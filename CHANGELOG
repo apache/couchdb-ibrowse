@@ -1,6 +1,33 @@
 CONTRIBUTIONS & CHANGE HISTORY
 ==============================
 
+01-05-2026  - v4.5.0
+             * Added connect_to request option for connecting to an alternate
+               network target while preserving the original URL host for the
+               Host header, cookies, and TLS SNI (PR#183)
+             * Added format_status/1 callback to strip sensitive data from
+               gen_server status output (PR#182)
+             * Bumped minimum supported Erlang/OTP version to 25; replaced
+               Travis CI with GitHub Actions (PR#181)
+             * Added option to disable trap_exit in worker processes so
+               external connection pools can rely on link-based cleanup
+               (PR#171)
+             * Internal timestamps are now strictly monotonic, and the
+               pre-OTP-25 fallback path has been removed
+               (PR#173, PR#185)
+             * Performance: refactored chunk_request_body so the Erlang
+               compiler can reuse the binary match context; added
+               chunk-encoding tests to CI (PR#184)
+             * Performance: replaced lists:keysearch/3 with the more
+               efficient lists:keyfind/3 (PR#186)
+             * Added a helper to update download_dir in the internal config
+               ETS table at runtime (PR#158)
+             * Fix: routing acquires a fresh load-balancer pid if the cached
+               one is no longer alive (PR#166)
+             * Test/build: use ssl:handshake/2 on OTP 21+, increased timeout
+               in the small_pipeline test, miscellaneous typo fixes
+               (PR#172, PR#174, PR#175)
+
 21-09-2018  - v4.4.2
              * Fix for #163 - default to using IPv4
 
