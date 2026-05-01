@@ -5,8 +5,7 @@
          {applications, [kernel,stdlib]},
 	 {env, []},
 	 {mod, {ibrowse_app, []}},
-         {maintainers, ["Chandrashekhar Mullaparthi"]},
-         {licenses, ["GPLv2", "BSD"]},
+         {licenses, ["LGPL-2.1-or-later", "BSD-3-Clause"]},
 	 {modules, []},
          {links, [{"Github", "https://github.com/cmullaparthi/ibrowse"}]}
         ]
